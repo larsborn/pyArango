@@ -80,6 +80,7 @@ class AikidoSession:
             username,
             password,
             verify=True,
+            cert=None,
             max_conflict_retries=5,
             max_retries=5,
             single_session=True,
@@ -92,6 +93,7 @@ class AikidoSession:
             self.auth = None
         self.pool_maxsize = pool_maxsize
         self.verify = verify
+        self.cert = cert
         self.max_retries = max_retries
         self.log_requests = log_requests
         self.max_conflict_retries = max_conflict_retries
@@ -117,6 +119,8 @@ class AikidoSession:
         https = requests.adapters.HTTPAdapter(**kwargs)
         session.mount('http://', http)
         session.mount('https://', https)
+        if self.cert:
+            session.cert = self.cert
 
         return session
 
@@ -190,6 +194,7 @@ class Connection(object):
             username=None,
             password=None,
             verify=True,
+            cert=None,
             verbose=False,
             statsdClient=None,
             reportFileName=None,
@@ -231,7 +236,7 @@ class Connection(object):
         self.identifier = None
         self.startTime = None
         self.session = None
-        self.resetSession(username, password, verify)
+        self.resetSession(username, password, verify, cert)
 
         self.users = Users(self)
 
@@ -285,12 +290,14 @@ class Connection(object):
             self,
             username,
             password,
-            verify
+            verify,
+            cert
     ) -> AikidoSession:
         return AikidoSession(
             username=username,
             password=password,
             verify=verify,
+            cert=cert,
             single_session=True,
             max_conflict_retries=self.max_conflict_retries,
             max_retries=self.max_retries,
@@ -313,10 +320,12 @@ class Connection(object):
             verify
         )
 
-    def resetSession(self, username=None, password=None, verify=True):
+    def resetSession(self, username=None, password=None, verify=True, cert=None):
         """resets the session"""
         self.disconnectSession()
         if self.use_grequests:
+            if cert is not None:
+                raise NotImplementedError('client-side certificates not supported in conjunction with grequests yet')
             self.session = self.create_grequest_session(
                 username,
                 password,
@@ -326,7 +335,8 @@ class Connection(object):
             self.session = self.create_aikido_session(
                 username,
                 password,
-                verify
+                verify,
+                cert
             )
 
     def reload(self):
